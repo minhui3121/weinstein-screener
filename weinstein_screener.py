@@ -45,7 +45,7 @@ RS_LOOKBACK = 8
 BATCH_SIZE = 50  # download tickers in batches to reduce chance of throttling
 REQUEST_PAUSE = 1.0  # seconds between yfinance batch downloads
 
-OUTPUT_CSV = "data/weinstein_candidates-daily.csv"
+OUTPUT_CSV = f"data/weinstein_candidates_{datetime.now().strftime('%Y%m%d')}.csv"
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 
@@ -222,9 +222,65 @@ def run_screener():
 
     return candidates
 
+def explain_ticker(ticker: str):
+    """
+    Analyze a single ticker and explain if it meets the Weinstein buy rules.
+    Returns a dict with results and explanation.
+    """
+    try:
+        # Download daily data
+        df_daily = yf.download(ticker, start=START, end=END, progress=False, auto_adjust=False)
+        if df_daily is None or df_daily.empty:
+            return {"ticker": ticker, "meets": False, "reason": "No data available."}
+
+        # Flatten MultiIndex columns if needed
+        if isinstance(df_daily.columns, pd.MultiIndex):
+            df_daily.columns = df_daily.columns.get_level_values(0)
+
+        # Convert to datetime index
+        df_daily.index = pd.to_datetime(df_daily.index)
+
+        # Convert to weekly
+        weekly = to_weekly(df_daily)
+
+        # Download SPY benchmark if not already
+        spy = yf.download('SPY', start=START, end=END, progress=False, auto_adjust=False)
+        if isinstance(spy.columns, pd.MultiIndex):
+            spy.columns = spy.columns.get_level_values(0)
+        spy.index = pd.to_datetime(spy.index)
+        spy_weekly = to_weekly(spy)
+
+        # Compute indicators
+        weekly_ind = compute_indicators(weekly, spy_weekly)
+
+        # Check Weinstein buy rules
+        meets, details = is_weinstein_buy(weekly_ind)
+
+        explanation = f"Ticker {ticker} "
+        if meets:
+            explanation += "meets the Weinstein buy criteria.\n"
+            explanation += f"Close: {details['close']:.2f}, SMA30: {details['SMA30']:.2f}\n"
+            explanation += f"Additional indicators: {details}"
+        else:
+            explanation += "does NOT meet the Weinstein buy criteria.\n"
+            explanation += f"Indicators: {details}"
+
+        return {
+            "ticker": ticker,
+            "meets": meets,
+            "details": details,
+            "explanation": explanation
+        }
+
+    except Exception as e:
+        return {"ticker": ticker, "meets": False, "reason": f"Error: {e}"}
+
 if __name__ == '__main__':
     import time
     start_time = datetime.now()
     logging.info("Starting Weinstein Stage 2 screener...")
     cands = run_screener()
     logging.info(f"Done in {(datetime.now() - start_time).total_seconds():.0f}s. Found {len(cands)} candidates.")
+    # result = explain_ticker("NKE")
+    # print(result["explanation"])
+
