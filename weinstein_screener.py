@@ -150,11 +150,11 @@ def run_screener():
     spy_weekly = to_weekly(spy)
 
     # Process tickers in batches
-    for i in range(0, len(tickers), BATCH_SIZE):
+    for i in range(0, len(tickers), BATCH_SIZE): 
         batch = tickers[i:i+BATCH_SIZE]
         logging.info(f"Downloading batch {i//BATCH_SIZE + 1}: {len(batch)} tickers")
         try:
-            data = yf.download(batch, start=START, end=END, progress=False, group_by='ticker', threads=True)
+            data = yf.download(batch, start=START, end=END, progress=False, group_by='ticker', threads=True, auto_adjust=False)
         except Exception as e:
             logging.warning(f"Batch download failed: {e}. Retrying individually.")
             data = None
