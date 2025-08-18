@@ -150,7 +150,7 @@ def run_screener():
     spy_weekly = to_weekly(spy)
 
     # Process tickers in batches
-    for i in range(0, len(tickers), BATCH_SIZE): 
+    for i in range(0, len(tickers), BATCH_SIZE):
         batch = tickers[i:i+BATCH_SIZE]
         logging.info(f"Downloading batch {i//BATCH_SIZE + 1}: {len(batch)} tickers")
         try:
